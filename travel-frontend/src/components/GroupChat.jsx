@@ -53,14 +53,15 @@ function GroupChat({ user }) {
   };
 
   return (
-    <div style={{ padding: "1rem" }}>
-      <h2>Group Chat</h2>
+    <div className="chat-container">
+      <h2 className="text-center">Group Chat</h2>
 
       <form
         onSubmit={(e) => {
           e.preventDefault();
           fetchMessages();
         }}
+        className="chat-input-form"
       >
         <input
           type="text"
@@ -68,45 +69,42 @@ function GroupChat({ user }) {
           value={groupId}
           onChange={(e) => setGroupId(e.target.value)}
           required
+          className="chat-input-field"
         />
-        <button type="submit">Join</button>
+        <button type="submit" className="chat-submit-button">
+          Join
+        </button>
       </form>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      {error && <p className="text-danger">{error}</p>}
       {loading && <p>Loading messages...</p>}
 
       {groupId && !loading && (
         <>
-          <div
-            style={{
-              marginTop: "1rem",
-              maxHeight: 300,
-              overflowY: "scroll",
-              border: "1px solid gray",
-              padding: "1rem",
-            }}
-          >
+          <div className="chat-messages">
             {messages.length === 0 && <p>No messages in this group.</p>}
             {messages.map((msg) => (
-              <div key={msg.id}>
-                <b>{msg.sender}</b>: {msg.message}{" "}
-                <small style={{ color: "#666", fontSize: "0.8rem" }}>
+              <div key={msg.id} className="message">
+                <b className="message-sender">{msg.sender}</b>: {msg.message}{" "}
+                <small className="message-time">
                   {new Date(msg.timestamp).toLocaleTimeString()}
                 </small>
               </div>
             ))}
           </div>
 
-          <form onSubmit={handleSend} style={{ marginTop: "1rem" }}>
+          <form onSubmit={handleSend} className="chat-input-form">
             <input
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Type a message"
               required
-              style={{ width: "80%" }}
+              className="chat-input-field"
             />
-            <button type="submit">Send</button>
+            <button type="submit" className="chat-submit-button">
+              Send
+            </button>
           </form>
         </>
       )}

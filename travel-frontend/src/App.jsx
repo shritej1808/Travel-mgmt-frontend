@@ -5,6 +5,8 @@ import Register from "./components/Register";
 import Login from "./components/Login";
 import Packages from "./components/Packages";
 import GroupChat from "./components/GroupChat";
+import Payment from "./components/Payment";
+import './App.css';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -50,6 +52,7 @@ function App() {
         <Route path="/login" element={<Login setUser={setUser} />} />
         <Route path="/register" element={<Register />} />
         <Route path="/packages" element={<Packages user={user} />} />
+        <Route path="/payment/:packageId" element={<Payment />} />
         <Route
           path="/chat"
           element={
