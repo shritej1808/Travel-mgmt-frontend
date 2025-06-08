@@ -6,25 +6,21 @@ import Login from "./components/Login";
 import Packages from "./components/Packages";
 import GroupChat from "./components/GroupChat";
 import Payment from "./components/Payment";
+import axios from "./api/axiosConfig";
 import './App.css';
 
 function App() {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const fetchMe = async () => {
     try {
-      const res = await fetch("http://localhost:8080/me", {
-        credentials: "include",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data);
-      } else {
-        setUser(null);
-      }
-    } catch (err) {
-      console.error("Error fetching user:", err);
+      const response = await axios.get("/me");
+      setUser(response.data);
+    } catch (error) {
       setUser(null);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -34,36 +30,48 @@ function App() {
 
   const handleLogout = async () => {
     try {
-      await fetch("http://localhost:8080/logout", {
-        method: "POST",
-        credentials: "include",
-      });
+      await axios.post("/logout");
       setUser(null);
-    } catch (err) {
-      console.error("Logout failed:", err);
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("Logout failed:", error);
     }
   };
+
+  if (loading) {
+    return <div className="loading">Loading...</div>;
+  }
 
   return (
     <Router>
       <Navbar user={user} onLogout={handleLogout} />
-      <Routes>
-        <Route path="/" element={<Navigate to="/packages" />} />
-        <Route path="/login" element={<Login setUser={setUser} />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/packages" element={<Packages user={user} />} />
-        <Route path="/payment/:packageId" element={<Payment />} />
-        <Route
-          path="/chat"
-          element={
-            user?.roles?.some((r) => r.authority === "USER") ? (
-              <GroupChat user={user} />
-            ) : (
+      <div className="main-content">
+        <Routes>
+          <Route path="/" element={<Navigate to="/packages" />} />
+          <Route 
+            path="/login" 
+            element={user ? <Navigate to="/packages" /> : <Login setUser={setUser} />} 
+          />
+          <Route 
+            path="/register" 
+            element={user ? <Navigate to="/packages" /> : <Register />} 
+          />
+          <Route path="/packages" element={<Packages user={user} />} />
+          <Route path="/payment/:packageId" element={
+            user?.roles?.some(r => r.authority === "USER") ? 
+              <Payment /> : 
               <Navigate to="/packages" />
-            )
-          }
-        />
-      </Routes>
+          } />
+          <Route
+            path="/chat"
+            element={
+              user?.roles?.some(r => r.authority === "USER") ? 
+                <GroupChat user={user} /> : 
+                <Navigate to="/packages" />
+            }
+          />
+        </Routes>
+      </div>
     </Router>
   );
 }

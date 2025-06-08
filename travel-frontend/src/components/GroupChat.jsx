@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import axios from "../api/axiosConfig";
+import '../App.css';
 
 function GroupChat({ user }) {
   const [groupId, setGroupId] = useState("");
@@ -9,21 +11,14 @@ function GroupChat({ user }) {
 
   const fetchMessages = async () => {
     if (!groupId) return;
-
+    
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`http://localhost:8080/chat/${groupId}`, {
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error(`Failed to fetch messages: ${res.status}`);
-
-      const data = await res.json();
-      console.log("Messages from backend:", data);
-      setMessages(data);
+      const response = await axios.get(`/chat/${groupId}`);
+      setMessages(response.data);
     } catch (err) {
-      console.error(err.message);
-      setError(err.message);
+      setError(err.response?.data || "Failed to fetch messages");
       setMessages([]);
     } finally {
       setLoading(false);
@@ -36,73 +31,60 @@ function GroupChat({ user }) {
 
     setError("");
     try {
-      const res = await fetch(`http://localhost:8080/chat/${groupId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ message }),
-      });
-      if (!res.ok) throw new Error(`Failed to send message: ${res.status}`);
-
+      await axios.post(`/chat/${groupId}`, { message });
       setMessage("");
       await fetchMessages();
     } catch (err) {
-      console.error(err.message);
-      setError(err.message);
+      setError(err.response?.data || "Failed to send message");
     }
   };
 
   return (
     <div className="chat-container">
-      <h2 className="text-center">Group Chat</h2>
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          fetchMessages();
-        }}
-        className="chat-input-form"
-      >
+      <h2>Group Chat</h2>
+      
+      <div className="chat-controls">
         <input
           type="text"
           placeholder="Enter Group ID"
           value={groupId}
           onChange={(e) => setGroupId(e.target.value)}
-          required
-          className="chat-input-field"
         />
-        <button type="submit" className="chat-submit-button">
-          Join
+        <button onClick={fetchMessages} disabled={!groupId}>
+          Join Group
         </button>
-      </form>
+      </div>
 
-      {error && <p className="text-danger">{error}</p>}
-      {loading && <p>Loading messages...</p>}
+      {error && <div className="error-message">{error}</div>}
+      {loading && <div>Loading messages...</div>}
 
-      {groupId && !loading && (
+      {groupId && (
         <>
-          <div className="chat-messages">
-            {messages.length === 0 && <p>No messages in this group.</p>}
-            {messages.map((msg) => (
-              <div key={msg.id} className="message">
-                <b className="message-sender">{msg.sender}</b>: {msg.message}{" "}
-                <small className="message-time">
-                  {new Date(msg.timestamp).toLocaleTimeString()}
-                </small>
-              </div>
-            ))}
+          <div className="messages-container">
+            {messages.length === 0 ? (
+              <p>No messages in this group yet.</p>
+            ) : (
+              messages.map(msg => (
+                <div key={msg.id} className="message">
+                  <span className="sender">{msg.sender}: </span>
+                  <span className="message-text">{msg.message}</span>
+                  <span className="timestamp">
+                    {new Date(msg.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
 
-          <form onSubmit={handleSend} className="chat-input-form">
+          <form onSubmit={handleSend} className="message-form">
             <input
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type a message"
+              placeholder="Type your message..."
               required
-              className="chat-input-field"
             />
-            <button type="submit" className="chat-submit-button">
+            <button type="submit" disabled={!message.trim()}>
               Send
             </button>
           </form>

@@ -1,136 +1,145 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "../api/axiosConfig";
+import '../App.css';
 
 function Packages({ user }) {
   const [packages, setPackages] = useState([]);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    price: "",
+    imageUrl: ""
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetch("http://localhost:8080/packages", { credentials: "include" })
-      .then((res) => res.json())
-      .then(setPackages)
-      .catch(console.error);
+    const fetchPackages = async () => {
+      try {
+        const response = await axios.get("/packages");
+        setPackages(response.data);
+      } catch (err) {
+        setError("Failed to fetch packages");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPackages();
   }, []);
 
-  const isCompany = user?.roles?.some((r) => r.authority === "TRAVEL_COMPANY");
-  const isUser = user?.roles?.some((r) => r.authority === "USER");
+  const isCompany = user?.roles?.some(r => r.authority === "TRAVEL_COMPANY");
+  const isUser = user?.roles?.some(r => r.authority === "USER");
 
-  const handleAdd = (e) => {
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === "price" ? Number(value) : value
+    }));
+  };
+
+  const handleAddPackage = async (e) => {
     e.preventDefault();
-    fetch("http://localhost:8080/packages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ name, description, price: Number(price), imageUrl }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to add package");
-        return res.json();
-      })
-      .then((newPackage) => {
-        const normalizedPackage = {
-          ...newPackage,
-          companyName: newPackage.companyName || user.username,
-        };
-        setPackages([...packages, normalizedPackage]);
-        setName("");
-        setDescription("");
-        setPrice("");
-        setImageUrl("");
-      })
-      .catch((err) => alert(err.message));
+    try {
+      const response = await axios.post("/packages", formData);
+      setPackages([...packages, response.data]);
+      setFormData({
+        name: "",
+        description: "",
+        price: "",
+        imageUrl: ""
+      });
+    } catch (err) {
+      setError(err.response?.data || "Failed to add package");
+    }
   };
 
-  const handleDelete = (id) => {
-    fetch(`http://localhost:8080/packages/${id}`, {
-      method: "DELETE",
-      credentials: "include",
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to delete package");
-        setPackages(packages.filter((p) => p.id !== id));
-      })
-      .catch((err) => alert(err.message));
+  const handleDelete = async (id) => {
+    try {
+      await axios.delete(`/packages/${id}`);
+      setPackages(packages.filter(pkg => pkg.id !== id));
+    } catch (err) {
+      setError(err.response?.data || "Failed to delete package");
+    }
   };
 
-  const handleUpdate = (id) => {
-    const updatedName = prompt("New name");
-    const updatedDescription = prompt("New description");
-    const updatedPrice = prompt("New price");
-    const updatedImageUrl = prompt("New image URL");
+  const handleUpdate = async (id) => {
+    const packageToUpdate = packages.find(pkg => pkg.id === id);
+    const updatedName = prompt("Name:", packageToUpdate.name);
+    const updatedDescription = prompt("Description:", packageToUpdate.description);
+    const updatedPrice = prompt("Price:", packageToUpdate.price);
+    const updatedImageUrl = prompt("Image URL:", packageToUpdate.imageUrl);
 
     if (!updatedName || !updatedDescription || !updatedPrice || !updatedImageUrl) return;
 
-    fetch(`http://localhost:8080/packages/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
+    try {
+      const response = await axios.put(`/packages/${id}`, {
         name: updatedName,
         description: updatedDescription,
         price: Number(updatedPrice),
-        imageUrl: updatedImageUrl,
-      }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to update package");
-        return res.json();
-      })
-      .then((updatedPackage) => {
-        setPackages(
-          packages.map((p) =>
-            p.id === id ? { ...updatedPackage, companyName: p.companyName } : p
-          )
-        );
-      })
-      .catch((err) => alert(err.message));
+        imageUrl: updatedImageUrl
+      });
+      setPackages(packages.map(pkg => 
+        pkg.id === id ? response.data : pkg
+      ));
+    } catch (err) {
+      setError(err.response?.data || "Failed to update package");
+    }
   };
 
   const handleBook = (id) => {
     navigate(`/payment/${id}`);
   };
 
-  return (
-    <div className="container">
-      <h2 className="text-center">Travel Packages</h2>
-      <div className="packages-list">
-        {packages.map((p) => (
-          <div key={p.id} className="package-card">
-            <img
-              src={p.imageUrl}
-              alt="Travel"
-              className="package-image"
-              onError={(e) => (e.target.style.display = "none")}
-            />
-            <div className="package-content">
-              <h3>{p.name}</h3>
-              <p>{p.description}</p>
-              <p className="package-price">₹{p.price}</p>
-              <p className="package-company">By {p.companyName}</p>
+  if (loading) return <div>Loading packages...</div>;
+  if (error) return <div className="error">{error}</div>;
 
+  return (
+    <div className="packages-container">
+      <h2>Travel Packages</h2>
+      
+      <div className="packages-grid">
+        {packages.map(pkg => (
+          <div key={pkg.id} className="package-card">
+            {pkg.imageUrl && (
+              <img 
+                src={pkg.imageUrl} 
+                alt={pkg.name} 
+                className="package-image"
+                onError={(e) => e.target.style.display = 'none'}
+              />
+            )}
+            <div className="package-details">
+              <h3>{pkg.name}</h3>
+              <p>{pkg.description}</p>
+              <p className="price">${pkg.price.toFixed(2)}</p>
+              <p className="company">By {pkg.companyName}</p>
+              
               <div className="package-actions">
-                {isCompany && p.companyName === user.username && (
+                {isCompany && pkg.companyName === user.username && (
                   <>
-                    <button onClick={() => handleUpdate(p.id)}>Edit</button>
                     <button 
-                      onClick={() => handleDelete(p.id)} 
-                      style={{ backgroundColor: "#e74c3c" }}
+                      onClick={() => handleUpdate(pkg.id)}
+                      className="edit-btn"
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(pkg.id)}
+                      className="delete-btn"
                     >
                       Delete
                     </button>
                   </>
                 )}
-
                 {isUser && (
                   <button 
-                    onClick={() => handleBook(p.id)}
-                    style={{ backgroundColor: "#27ae60" }}
+                    onClick={() => handleBook(pkg.id)}
+                    className="book-btn"
                   >
-                    Book
+                    Book Now
                   </button>
                 )}
               </div>
@@ -140,32 +149,37 @@ function Packages({ user }) {
       </div>
 
       {isCompany && (
-        <form onSubmit={handleAdd}>
+        <form onSubmit={handleAddPackage} className="add-package-form">
           <h3>Add New Package</h3>
-          <input 
-            value={name} 
-            onChange={(e) => setName(e.target.value)} 
-            placeholder="Name" 
-            required 
-          />
           <input
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            name="name"
+            value={formData.name}
+            onChange={handleInputChange}
+            placeholder="Package Name"
+            required
+          />
+          <textarea
+            name="description"
+            value={formData.description}
+            onChange={handleInputChange}
             placeholder="Description"
             required
           />
           <input
             type="number"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
+            name="price"
+            value={formData.price}
+            onChange={handleInputChange}
             placeholder="Price"
             min="0"
+            step="0.01"
             required
           />
           <input
             type="url"
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
+            name="imageUrl"
+            value={formData.imageUrl}
+            onChange={handleInputChange}
             placeholder="Image URL"
             required
           />

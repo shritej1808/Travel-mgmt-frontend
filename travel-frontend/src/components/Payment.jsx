@@ -1,31 +1,110 @@
-import { useParams } from "react-router-dom";
+import React, { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import axios from "../api/axiosConfig";
+import '../App.css';
 
 function Payment() {
   const { packageId } = useParams();
+  const navigate = useNavigate();
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const handlePayment = async (e) => {
+    e.preventDefault();
+    if (!paymentMethod) {
+      setError("Please select a payment method");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      await axios.post(`/payment/${packageId}/confirm`);
+      setSuccess(true);
+      setTimeout(() => {
+        navigate("/packages");
+      }, 3000);
+    } catch (err) {
+      setError(err.response?.data || "Payment failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="payment-success">
+        <h2>Booking Confirmed!</h2>
+        <p>Your payment was successful. A confirmation email has been sent.</p>
+        <p>Redirecting to packages page...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="container">
-      <h2 className="text-center">Payment for Package ID: {packageId}</h2>
-      <p className="text-center">Select your payment option:</p>
-      <div className="payment-options">
-        <div className="payment-option">
-          <h3>UPI</h3>
-          <button>Pay with UPI</button>
+    <div className="payment-container">
+      <h2>Payment for Package #{packageId}</h2>
+      
+      <form onSubmit={handlePayment}>
+        <div className="payment-methods">
+          <label>
+            <input
+              type="radio"
+              name="paymentMethod"
+              value="UPI"
+              checked={paymentMethod === "UPI"}
+              onChange={() => setPaymentMethod("UPI")}
+            />
+            UPI Payment
+          </label>
+          
+          <label>
+            <input
+              type="radio"
+              name="paymentMethod"
+              value="Card"
+              checked={paymentMethod === "Card"}
+              onChange={() => setPaymentMethod("Card")}
+            />
+            Credit/Debit Card
+          </label>
+          
+          <label>
+            <input
+              type="radio"
+              name="paymentMethod"
+              value="NetBanking"
+              checked={paymentMethod === "NetBanking"}
+              onChange={() => setPaymentMethod("NetBanking")}
+            />
+            Net Banking
+          </label>
+          
+          <label>
+            <input
+              type="radio"
+              name="paymentMethod"
+              value="COD"
+              checked={paymentMethod === "COD"}
+              onChange={() => setPaymentMethod("COD")}
+            />
+            Cash on Arrival
+          </label>
         </div>
-        <div className="payment-option">
-          <h3>Credit/Debit Card</h3>
-          <button>Pay with Card</button>
-        </div>
-        <div className="payment-option">
-          <h3>Net Banking</h3>
-          <button>Pay via Net Banking</button>
-        </div>
-        <div className="payment-option">
-          <h3>Cash on Arrival</h3>
-          <button>Select COD</button>
-        </div>
-      </div>
-      <p className="text-center"><em>(This is a mock payment page. No actual payment integration.)</em></p>
+
+        {error && <div className="error-message">{error}</div>}
+
+        <button type="submit" disabled={loading || !paymentMethod}>
+          {loading ? "Processing..." : "Confirm Payment"}
+        </button>
+      </form>
+
+      <p className="note">
+        Note: This is a demo payment system. No actual payment will be processed.
+      </p>
     </div>
   );
 }

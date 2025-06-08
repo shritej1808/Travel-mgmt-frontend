@@ -1,47 +1,95 @@
 import React, { useState } from "react";
+import axios from "../api/axiosConfig";
+import { useNavigate } from "react-router-dom";
+import '../App.css';
 
-export default function Register() {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState("TRAVEL_COMPANY");
-  const [error, setError] = useState(null);
+function Register() {
+  const [formData, setFormData] = useState({
+    username: "",
+    password: "",
+    role: "TRAVEL_COMPANY",
+    email: ""
+  });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  const handleRegister = async (e) => {
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
+    setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:8080/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ username, password, role }),
-      });
-
-      if (!response.ok) {
-        const message = await response.text();
-        throw new Error(message || "Failed to register");
-      }
-
-      alert("Registration successful. Please log in.");
+      await axios.post("/register", formData);
+      alert("Registration successful! Please login.");
+      navigate("/login");
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data || "Registration failed. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleRegister} style={{ maxWidth: 400, margin: "auto" }}>
+    <div className="register-container">
       <h2>Register</h2>
-      <input value={username} onChange={(e) => setUsername(e.target.value)} required placeholder="Username" />
-      <br />
-      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required placeholder="Password" />
-      <br />
-      <select value={role} onChange={(e) => setRole(e.target.value)}>
-        <option value="TRAVEL_COMPANY">Travel Company</option>
-        <option value="USER">User</option>
-      </select>
-      <br />
-      <button type="submit">Register</button>
-      {error && <p style={{ color: "red" }}>{error}</p>}
-    </form>
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label>Username</label>
+          <input
+            type="text"
+            name="username"
+            value={formData.username}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>Password</label>
+          <input
+            type="password"
+            name="password"
+            value={formData.password}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>Email</label>
+          <input
+            type="email"
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>Role</label>
+          <select
+            name="role"
+            value={formData.role}
+            onChange={handleChange}
+          >
+            <option value="TRAVEL_COMPANY">Travel Company</option>
+            <option value="USER">Regular User</option>
+          </select>
+        </div>
+        {error && <div className="error-message">{error}</div>}
+        <button type="submit" disabled={loading}>
+          {loading ? "Registering..." : "Register"}
+        </button>
+      </form>
+    </div>
   );
 }
+
+export default Register;
