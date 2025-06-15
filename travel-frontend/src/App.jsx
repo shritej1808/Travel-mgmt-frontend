@@ -8,6 +8,11 @@ import GroupChat from "./components/GroupChat";
 import Payment from "./components/Payment";
 import axios from "./api/axiosConfig";
 import './App.css';
+// In your App.js or wherever you render Packages
+import ErrorBoundary from './components/ErrorBoundary';
+
+// In your routes:
+
 
 function App() {
   const [user, setUser] = useState(null);
@@ -70,6 +75,14 @@ function App() {
                 <Navigate to="/packages" />
             }
           />
+                <Route 
+        path="/packages" 
+        element={
+          <ErrorBoundary>
+            <Packages user={user} />
+          </ErrorBoundary>
+        } 
+      />
         </Routes>
       </div>
     </Router>

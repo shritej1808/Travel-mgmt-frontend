@@ -1,191 +1,185 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import axios from "../api/axiosConfig";
-import '../App.css';
+import { useNavigate } from "react-router-dom";
 
 function Packages({ user }) {
   const [packages, setPackages] = useState([]);
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    price: "",
-    imageUrl: ""
-  });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
+  const [sortOption, setSortOption] = useState("default");
+  const [minReviews, setMinReviews] = useState(0);
+  const [showReviewForm, setShowReviewForm] = useState(null);
+  const [reviewData, setReviewData] = useState({ rating: 5, comment: "" });
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchPackages = async () => {
       try {
-        const response = await axios.get("/packages");
+        const params = {};
+        if (sortOption !== "default") params.sort = sortOption;
+        if (minReviews > 0) params.minReviews = minReviews;
+
+        const response = await axios.get("/packages", { params });
         setPackages(response.data);
       } catch (err) {
-        setError("Failed to fetch packages");
+        setError(err.response?.data?.message || "Failed to fetch packages");
       } finally {
         setLoading(false);
       }
     };
+    
     fetchPackages();
-  }, []);
+  }, [sortOption, minReviews]);
 
-  const isCompany = user?.roles?.some(r => r.authority === "TRAVEL_COMPANY");
-  const isUser = user?.roles?.some(r => r.authority === "USER");
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === "price" ? Number(value) : value
-    }));
-  };
-
-  const handleAddPackage = async (e) => {
-    e.preventDefault();
+  const handleReviewSubmit = async (packageId) => {
     try {
-      const response = await axios.post("/packages", formData);
-      setPackages([...packages, response.data]);
-      setFormData({
-        name: "",
-        description: "",
-        price: "",
-        imageUrl: ""
+      await axios.post("/reviews", {
+        packageId,
+        rating: reviewData.rating,
+        comment: reviewData.comment
       });
-    } catch (err) {
-      setError(err.response?.data || "Failed to add package");
-    }
-  };
-
-  const handleDelete = async (id) => {
-    try {
-      await axios.delete(`/packages/${id}`);
-      setPackages(packages.filter(pkg => pkg.id !== id));
-    } catch (err) {
-      setError(err.response?.data || "Failed to delete package");
-    }
-  };
-
-  const handleUpdate = async (id) => {
-    const packageToUpdate = packages.find(pkg => pkg.id === id);
-    const updatedName = prompt("Name:", packageToUpdate.name);
-    const updatedDescription = prompt("Description:", packageToUpdate.description);
-    const updatedPrice = prompt("Price:", packageToUpdate.price);
-    const updatedImageUrl = prompt("Image URL:", packageToUpdate.imageUrl);
-
-    if (!updatedName || !updatedDescription || !updatedPrice || !updatedImageUrl) return;
-
-    try {
-      const response = await axios.put(`/packages/${id}`, {
-        name: updatedName,
-        description: updatedDescription,
-        price: Number(updatedPrice),
-        imageUrl: updatedImageUrl
+      
+      // Refresh packages after review submission
+      const response = await axios.get("/packages", {
+        params: { sort: sortOption, minReviews }
       });
-      setPackages(packages.map(pkg => 
-        pkg.id === id ? response.data : pkg
-      ));
+      setPackages(response.data);
+      setShowReviewForm(null);
+      setReviewData({ rating: 5, comment: "" });
     } catch (err) {
-      setError(err.response?.data || "Failed to update package");
+      setError(err.response?.data?.message || "Failed to submit review");
     }
   };
 
-  const handleBook = (id) => {
-    navigate(`/payment/${id}`);
-  };
-
-  if (loading) return <div>Loading packages...</div>;
+  if (loading) return <div className="loading">Loading packages...</div>;
   if (error) return <div className="error">{error}</div>;
 
   return (
     <div className="packages-container">
       <h2>Travel Packages</h2>
       
+      <div className="sort-controls">
+        <div className="sort-group">
+          <label>Sort by:</label>
+          <select
+            value={sortOption}
+            onChange={(e) => setSortOption(e.target.value)}
+          >
+            <option value="default">Default</option>
+            <option value="rating-high">Highest Rating</option>
+            <option value="rating-low">Lowest Rating</option>
+            <option value="reviews-high">Most Reviews</option>
+          </select>
+        </div>
+        
+        <div className="filter-group">
+          <label>Minimum Reviews:</label>
+          <input
+            type="number"
+            min="0"
+            value={minReviews}
+            onChange={(e) => setMinReviews(Number(e.target.value))}
+          />
+        </div>
+      </div>
+      
       <div className="packages-grid">
         {packages.map(pkg => (
           <div key={pkg.id} className="package-card">
-            {pkg.imageUrl && (
-              <img 
-                src={pkg.imageUrl} 
-                alt={pkg.name} 
-                className="package-image"
-                onError={(e) => e.target.style.display = 'none'}
-              />
-            )}
+            <img 
+              src={pkg.imageUrl || '/placeholder-image.jpg'} 
+              alt={pkg.name} 
+              className="package-image"
+              onError={(e) => {
+                e.target.onerror = null; 
+                e.target.src = '/placeholder-image.jpg'
+              }}
+            />
             <div className="package-details">
               <h3>{pkg.name}</h3>
-              <p>{pkg.description}</p>
-              <p className="price">${pkg.price.toFixed(2)}</p>
-              <p className="company">By {pkg.companyName}</p>
+              <p className="description">{pkg.description}</p>
+              <p className="price">${pkg.price?.toFixed(2)}</p>
               
-              <div className="package-actions">
-                {isCompany && pkg.companyName === user.username && (
-                  <>
-                    <button 
-                      onClick={() => handleUpdate(pkg.id)}
-                      className="edit-btn"
-                    >
-                      Edit
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(pkg.id)}
-                      className="delete-btn"
-                    >
-                      Delete
-                    </button>
-                  </>
-                )}
-                {isUser && (
-                  <button 
-                    onClick={() => handleBook(pkg.id)}
-                    className="book-btn"
-                  >
-                    Book Now
-                  </button>
+              <div className="rating-info">
+                <div className="stars">
+                  {pkg.averageRating ? (
+                    <>
+                      {'★'.repeat(Math.round(pkg.averageRating))}
+                      {'☆'.repeat(5 - Math.round(pkg.averageRating))}
+                      <span>({pkg.averageRating.toFixed(1)})</span>
+                    </>
+                  ) : 'No ratings'}
+                </div>
+                <div className="review-count">
+                  {pkg.reviewCount || 0} reviews
+                </div>
+              </div>
+              
+              {pkg.companyName && (
+                <p className="company">By: {pkg.companyName}</p>
+              )}
+
+              {/* Review Section */}
+              <div className="review-section">
+                <button 
+                  className="toggle-reviews-btn"
+                  onClick={() => setShowReviewForm(showReviewForm === pkg.id ? null : pkg.id)}
+                >
+                  {showReviewForm === pkg.id ? 'Hide Reviews' : 'Show Reviews'}
+                </button>
+
+                {showReviewForm === pkg.id && (
+                  <div className="reviews-container">
+                    {pkg.reviews?.length > 0 ? (
+                      pkg.reviews.map(review => (
+                        <div key={review.id} className="review-item">
+                          <div className="review-rating">
+                            {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
+                          </div>
+                          <p className="review-comment">{review.comment}</p>
+                          <p className="review-author">- {review.username}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <p>No reviews yet</p>
+                    )}
+
+                    {/* Add Review Form (only for logged in users) */}
+                    {user && user.roles?.some(r => r.authority === "USER") && (
+                      <div className="add-review-form">
+                        <h4>Add Your Review</h4>
+                        <div className="rating-input">
+                          {[1, 2, 3, 4, 5].map(star => (
+                            <span 
+                              key={star}
+                              className={`star ${star <= reviewData.rating ? 'active' : ''}`}
+                              onClick={() => setReviewData({...reviewData, rating: star})}
+                            >
+                              ★
+                            </span>
+                          ))}
+                        </div>
+                        <textarea
+                          placeholder="Share your experience..."
+                          value={reviewData.comment}
+                          onChange={(e) => setReviewData({...reviewData, comment: e.target.value})}
+                        />
+                        <button 
+                          className="submit-review-btn"
+                          onClick={() => handleReviewSubmit(pkg.id)}
+                          disabled={!reviewData.comment.trim()}
+                        >
+                          Submit Review
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
           </div>
         ))}
       </div>
-
-      {isCompany && (
-        <form onSubmit={handleAddPackage} className="add-package-form">
-          <h3>Add New Package</h3>
-          <input
-            name="name"
-            value={formData.name}
-            onChange={handleInputChange}
-            placeholder="Package Name"
-            required
-          />
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleInputChange}
-            placeholder="Description"
-            required
-          />
-          <input
-            type="number"
-            name="price"
-            value={formData.price}
-            onChange={handleInputChange}
-            placeholder="Price"
-            min="0"
-            step="0.01"
-            required
-          />
-          <input
-            type="url"
-            name="imageUrl"
-            value={formData.imageUrl}
-            onChange={handleInputChange}
-            placeholder="Image URL"
-            required
-          />
-          <button type="submit">Add Package</button>
-        </form>
-      )}
     </div>
   );
 }
